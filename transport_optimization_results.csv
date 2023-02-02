@@ -1,0 +1,4 @@
+Production site,Demand site,Annual H2 transported [kg],Transport mode,Number of trailers required,Specific cost [EUR/kg],Total annual cost [EUR]
+Production site B,Demand site C,50,trailer_300,1,3.5,175.0
+Production site A,Demand site B,90.0,trailer_300,1,3.89,350.1
+Production site B,Demand site A,30.0,trailer_300,1,3.97,119.10000000000001
