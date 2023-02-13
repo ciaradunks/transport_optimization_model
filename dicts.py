@@ -4,8 +4,10 @@
 # only different values are trailer capacity and tube trailer cost
 
 trailer_costs = {
-    'trailer_300': {
+    # ToDo: I have made the trailer 350 bar for now (maybe change back to 300)
+    'trailer_350': {
         'trailer_cap': 1165,  # kgH2?
+        'pressure': 350,  # bar
         'tube_trailer_cost': 550000,  # EUR
         'av_speed': 50,  # km/h
         'unload_time': 1.5,  # h
@@ -23,6 +25,7 @@ trailer_costs = {
     },
     'trailer_500': {
         'trailer_cap': 1400,  # kgH2?
+        'pressure': 500,  # bar
         'tube_trailer_cost': 1000000,  # EUR
         'av_speed': 50,  # km/h
         'unload_time': 1.5,  # h
@@ -54,5 +57,19 @@ pipeline_costs = {
     'pipeline_retrofit': {
         'cost_per_km': 100000,  # EUR/km
         'crf': 0.05,  # 5 %
+    }
+}
+
+# ---------- COMPRESSOR COST DICT ----------
+
+compressor_costs = {
+    'base_capital_cost': 28603,  # EUR
+    'scaling_factor': 0.6378,  # Equation (RLI)
+    'crf': 0.15,  # 15 %
+    'elec_price': 0.1855,  # EUR/kWh
+    # ToDo: check where these values come from and which to use
+    'energy_use': {
+        '40, 350': 1.52,
+        '350, 500': 0.26
     }
 }

@@ -1,0 +1,16 @@
+,Bahnhof Münsingen,Tankstelle Metzingen,Reutlingen 1,Dettingen an der Erms,Hohenstein,Tübingen 1,Sonnenbühl,Burladingen,Münsingen,Pfronstetten,Aichelau,Tübingen 2,Reutlingen 2,Mössingen,Rosenfeld
+Bahnhof Münsingen,~,21 km,28 km,15 km,15 km,38 km,25 km,31 km,0.5 km,18 km,15 km,33 km,24 km,33 km,59 km
+Tankstelle Metzingen,21 km,~,12 km,7 km,24 km,21 km ,20 km,30 km,21 km,30 km,15 km,16 km,9 km,23 km,50 km
+Reutlingen 1,28 km,12 km,~,16 km,23 km,10 km,12 km,23 km,28 km,29 km,29 km,5 km,4 km,12 km,39 km
+Dettingen an der Erms,15 km,7 km,16 km,~,21 km,27 km,21 km,31 km,15 km,26 km,25 km,21 km,13 km,26 km,54 km
+Hohenstein,15 km,24 km,23 km,21 km,~,31 km,15 km,17 km,15 km,6 km,6 km,28 km,21 km,23 km,46 km
+Tübingen 1,38 km,21 km ,10 km,27 km,31 km,~,17 km,25 km,38 km,36 km,37 km,6 km,14 km,11 km,36 km
+Sonnenbühl,25 km,20 km,12 km,21 km,15 km,17 km,~,11 km,25 km,20 km,21 km,15 km,12 km,8 km,34 km
+Burladingen,31 km,30 km,23 km,31 km,17 km,25 km,11 km,~,31 km,20 km,21 km,25 km,23 km,14 km,30 km
+Münsingen,0.5 km,21 km,28 km,15 km,15 km,38 km,25 km,31 km,~,20 km,16 km,33 km,24 km,33 km,59 km
+Pfronstetten,18 km,30 km,29 km,26 km,6 km,36 km,20 km,20 km,20 km,~,3 km,34 km,27 km,27 km,48 km
+Aichelau,15 km,15 km,29 km,25 km,6 km,37 km,21 km,21 km,16 km,3 km,~,34 km,27 km ,28 km,50 km
+Tübingen 2,33 km,16 km,5 km,21 km,28 km,6 km,15 km,25 km,33 km,34 km,34 km,~,9 km,12 km,36 km
+Reutlingen 2,24 km,9 km,4 km,13 km,21 km,14 km,12 km,23 km,24 km,27 km,27 km ,9 km,~,14 km,42 km
+Mössingen,33 km,23 km,12 km,26 km,23 km,11 km,8 km,14 km,33 km,27 km,28 km,12 km,14 km,~,28 km
+Rosenfeld,59 km,50 km,39 km,54 km,46 km,36 km,34 km,30 km,59 km,48 km,50 km,36 km,42 km,28 km,~

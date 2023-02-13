@@ -4,6 +4,23 @@ import numpy as np
 from dicts import trailer_costs, pipeline_costs
 
 
+# ToDo: change a lot of function descriptions and parameters because of new changes
+
+def turn_string_into_value(entry):
+    """Removes ' km' from the entry in the dataframe and turns the value into a float, if the value is not 0.
+
+    :param entry: string dataframe entry
+    :return: float dataframe entry
+    """
+    if entry != 0 and ' km' in entry:
+        entry = float(entry.replace(' km', ''))
+        # ToDo: for some reason this is not working at the moment
+        entry = round(entry, 2)
+    else:
+        entry = entry
+    return entry
+
+
 def get_distance_from_prod_to_demand_site(prod_site, demand_site, distance_matrix):
     """Locates and returns the distance between the production and demand sites.
 
@@ -15,12 +32,11 @@ def get_distance_from_prod_to_demand_site(prod_site, demand_site, distance_matri
     :type distance_matrix: dataframe
     :return: distance between the production site and demand site [km]
     """
-    distance_between_sites = distance_matrix[prod_site][demand_site]
+    distance_between_sites = round(distance_matrix[prod_site][demand_site], 2)
     return distance_between_sites
 
 
-def get_annual_h2_production(prod_site, annual_h2_prod_df):
-    # ToDo: write test that makes sure only a production site is located
+def get_available_h2(prod_site, h2_prod_sites):
     """Locates and returns the annual H2 production for the production site.
 
     :param prod_site: production site name
@@ -29,20 +45,19 @@ def get_annual_h2_production(prod_site, annual_h2_prod_df):
     :type annual_h2_prod_df: dataframe
     :return: annual H2 production for production site
     """
-    h2_yearly_prod = annual_h2_prod_df.loc[prod_site][0]
-    return h2_yearly_prod
+    h2_available = h2_prod_sites.loc[prod_site]['Available H2']
+    return h2_available
 
 
-def get_annual_h2_demand(demand_site, annual_h2_demand_df):
-    # ToDo: write tests that make sure only a demand site is located
+def get_needed_h2(demand_site, h2_demand_sites):
     """Locates and returns the annual H2 demand for the production site.
 
     :param demand_site: demand site name
     :param annual_h2_df: annual H2 demand dataframe
     :return: annual H2 demand for demand site
     """
-    h2_yearly_demand = annual_h2_demand_df.loc[demand_site][0]
-    return h2_yearly_demand
+    h2_needed = h2_demand_sites.loc[demand_site]['H2 needed']
+    return h2_needed
 
 
 def get_total_h2_loading(h2_yearly_prod, h2_yearly_demand):
@@ -57,6 +72,36 @@ def get_total_h2_loading(h2_yearly_prod, h2_yearly_demand):
     total_h2_loading = min(h2_yearly_prod, h2_yearly_demand)
     return total_h2_loading
 
+
+def get_compressor_costs(total_h2_loading, prod_site, demand_site, compressor_costs, trailer):
+
+    equation_prod_site = compressor_costs['base_capital_cost'] * \
+               ((prod_site['Compressor size'] + total_h2_loading / 365)
+                ** compressor_costs['scaling_factor'])
+    capex_prod_site = equation_prod_site * compressor_costs['crf']
+    opexfix_prod_site = 0.04 * equation_prod_site
+    pressures_prod_site = str(prod_site.iloc[0]['H2 pressure']) + ', ' +\
+                          str(trailer['pressure'])
+    opexvar_prod_site = compressor_costs['energy use'][pressures_prod_site] *\
+                      compressor_costs['elec_price'] * total_h2_loading
+    prod_site_costs = capex_prod_site + opexfix_prod_site + opexvar_prod_site
+
+    equation_demand_site = compressor_costs['base_capital_cost'] * \
+                         ((demand_site['Compressor size'] + total_h2_loading / 365)
+                          ** compressor_costs['scaling_factor'])
+    capex_demand_site = equation_demand_site * compressor_costs['crf']
+    opexfix_demand_site = 0.04 * equation_demand_site
+    pressures_demand_site = str(trailer['pressure']) + ', ' + \
+                          str(demand_site.iloc[0]['H2 pressure_needed'])
+    opexvar_demand_site = compressor_costs['energy use'][pressures_demand_site] * \
+                      compressor_costs['elec_price'] * total_h2_loading
+    demand_site_costs = capex_demand_site + opexfix_demand_site + opexvar_demand_site
+
+    compressor_costs_tot = prod_site_costs + demand_site_costs
+
+    return compressor_costs_tot
+
+# ToDo: test function is working and add get_compressor_costs function to get_trailer_costs and get_pipeline_costs
 
 # ToDo: get_compressor_costs can either be a function or a method of the site classes,
 #  def get_compressor_costs(prod_site, demand_site, compressor_costs, transport_pressure):
@@ -93,22 +138,25 @@ def get_trailer_costs(total_h2_loading, distance, trailer_costs):
 
     for trailer_type in trailer_costs:
         trailer = trailer_costs[trailer_type]
+        if distance > 0:
+            trailer_capex = (total_h2_loading / 365 / trailer['trailer_cap']) * \
+                            (((distance * 2) / trailer['av_speed']) + trailer['unload_time']) / \
+                            (trailer['delivery_days'] * trailer['trailer_availability'] * trailer['driver_hours']) * \
+                            (trailer['crf_trailer'] * trailer['tube_trailer_cost'] * trailer['crf_cab'] * trailer['cab_cost'])
 
-        trailer_capex = (total_h2_loading / 365 / trailer['trailer_cap']) * \
-                        (((distance * 2) / trailer['av_speed']) + trailer['unload_time']) / \
-                        (trailer['delivery_days'] * trailer['trailer_availability'] * trailer['driver_hours']) * \
-                        (trailer['crf_trailer'] * trailer['tube_trailer_cost'] * trailer['crf_cab'] * trailer['cab_cost'])
+            trailer_opex_fix = 0.05 * trailer_capex  # 5 % of CAPEX
 
-        trailer_opex_fix = 0.05 * trailer_capex  # 5 % of CAPEX
+            trailer_opex_var = (0.01 * trailer_capex) + \
+                               (distance * trailer['maut'] * trailer['maut_distance']) + \
+                               (distance * 2 * trailer['fuel_price'] * trailer['fuel_economy']) + \
+                               (total_h2_loading / 365 / trailer['trailer_cap']) * \
+                               ((distance * 2 / trailer['av_speed']) + trailer['unload_time']) * \
+                               (distance * 2 / trailer['av_speed']) * trailer['drivers_wage']
 
-        trailer_opex_var = (0.01 * trailer_capex) + \
-                           (distance * trailer['maut'] * trailer['maut_distance']) + \
-                           (distance * 2 * trailer['fuel_price'] * trailer['fuel_economy']) + \
-                           (total_h2_loading / 365 / trailer['trailer_cap']) * \
-                           ((distance * 2 / trailer['av_speed']) + trailer['unload_time']) * \
-                           (distance * 2 / trailer['av_speed']) * trailer['drivers_wage']
+            trailer_cost_tot = trailer_capex + trailer_opex_fix + trailer_opex_var
+        else:
+            trailer_cost_tot = 0
 
-        trailer_cost_tot = trailer_capex + trailer_opex_fix + trailer_opex_var
         if total_h2_loading > 0:
             cost_per_kg_trailer[trailer_type] = trailer_cost_tot / total_h2_loading
         else:
@@ -139,7 +187,7 @@ def get_pipeline_costs(total_h2_loading, distance, pipeline_costs):
             cost_per_kg_pipeline[pipeline_type] = pipeline_cost_tot / total_h2_loading
         else:
             cost_per_kg_pipeline = None
-        return cost_per_kg_pipeline
+    return cost_per_kg_pipeline
 
 
 def get_cheapest_cost(costs_dict_specific, dict_entries):
@@ -176,7 +224,8 @@ def get_cheapest_cost(costs_dict_specific, dict_entries):
     return minimum
 
 
-def run_transport_optimization_model(distance_df, annual_h2_prod_df, annual_h2_demand_df):
+
+def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_sites):
     """Main function for running the transport optimization model. For all production and demand sites,
      the transport route and mode with the optimal specific costs will be chosen. Once this particular
      route has been chosen with an optimal transport mode, the route will no longer be considered, and
@@ -197,9 +246,9 @@ def run_transport_optimization_model(distance_df, annual_h2_prod_df, annual_h2_d
     # and the total possible loading amount of H2
     dict_entries = ['specific costs', 'loading kgH2']
     # List of all the production site names
-    prod_site_list = [row for row in annual_h2_prod_df.index]
+    prod_site_list = [row for row in h2_prod_sites.index]
     # List of all the demand site names
-    demand_site_list = [row for row in annual_h2_demand_df.index]
+    demand_site_list = [row for row in h2_demand_sites.index]
     # Empty list in preparation to include all the production/demand site combinations that
     # have an optimum specific cost and thus should be removed from costs_dict_specific in
     # the next step
@@ -208,11 +257,19 @@ def run_transport_optimization_model(distance_df, annual_h2_prod_df, annual_h2_d
     optimization_results = []
     # The cumulative total costs for each of the optimal routes
     total_costs = 0
+    # Add column for the available H2 at the production site, initially this is equal to the total production
+    h2_prod_sites['Available H2'] = h2_prod_sites['Total H2 production']
+    # Add column for the available H2 at the demand site, initially this is equal to the total demand
+    h2_demand_sites['H2 needed'] = h2_demand_sites['Total H2 demand']
     # The sum of the demands for all demand sites
-    demand_sum = annual_h2_demand_df.sum()[0]
+    h2_needed_sum = h2_demand_sites.sum()['H2 needed']
+    # Add column for compressor size at production sites (initially this is zero)
+    h2_prod_sites['Compressor size'] = 0
+    # Add column for compressor size at demand sites (initially this is zero)
+    h2_demand_sites['Compressor size'] = 0
 
     # While loop until there is no demand left to be fulfilled
-    while demand_sum > 0:
+    while h2_needed_sum > 0:
         for prod_site in prod_site_list:
             costs_dict_specific[prod_site] = {}
             for demand_site in demand_site_list:
@@ -224,12 +281,12 @@ def run_transport_optimization_model(distance_df, annual_h2_prod_df, annual_h2_d
                     # For each production and demand site, the distance is found between them, the
                     # yearly production and demand are found, and the maximum H2 that can be transported
                     # between the two sites is calculated
-                    distance = get_distance_from_prod_to_demand_site(prod_site, demand_site, distance_df)
+                    distance = get_distance_from_prod_to_demand_site(prod_site, demand_site, distance_matrix)
                     # ToDo: cost_per_kg_trailer + cost_per_kg_pipeline calls this,
                     #  they get these as objects
-                    h2_yearly_prod = get_annual_h2_production(prod_site, annual_h2_prod_df)
-                    h2_yearly_demand = get_annual_h2_demand(demand_site, annual_h2_demand_df)
-                    total_h2_loading = get_total_h2_loading(h2_yearly_prod, h2_yearly_demand)
+                    h2_available = get_available_h2(prod_site, h2_prod_sites)
+                    h2_needed = get_needed_h2(demand_site, h2_demand_sites)
+                    total_h2_loading = get_total_h2_loading(h2_available, h2_needed)
                     # The specific costs for each trailer type in the trailer dict are calculated
                     # ToDo: calculate total_h2_loading in the cost functions, using prod + demand site objects
                     # ToDo: compressor costs need to be inside cost_per_kg_trailer -> a function
@@ -252,24 +309,27 @@ def run_transport_optimization_model(distance_df, annual_h2_prod_df, annual_h2_d
         minimum = get_cheapest_cost(costs_dict_specific, dict_entries)
         # Retrieves the loading amount for the optimal transport route
         loading = costs_dict_specific[minimum[0]][minimum[1]][dict_entries[1]]
-        # Calculates and updates the new available production amount for chosen production site
+        # Calculates and updates the new available H2 amount for chosen production site
         # by subtracting the loading amount
-        current_prod_val = annual_h2_prod_df.loc[minimum[0], annual_h2_prod_df.columns[0]]
+        current_prod_val = h2_prod_sites.loc[minimum[0], h2_prod_sites.columns[4]]
         new_prod_val = current_prod_val - loading
-        annual_h2_prod_df.loc[minimum[0], annual_h2_prod_df.columns[0]] = new_prod_val
+        h2_prod_sites.loc[minimum[0], h2_prod_sites.columns[4]] = new_prod_val
         # Calculates and updates the new available demand amount for chosen demand site by subtracting
         # the loading amount
-        current_demand_val = annual_h2_demand_df.loc[minimum[1], annual_h2_demand_df.columns[0]]
+        # ToDo: somewhere round here have a function for updating the site class
+        current_demand_val = h2_demand_sites.loc[minimum[1], h2_demand_sites.columns[4]]
         new_demand_val = current_demand_val - loading
-        annual_h2_demand_df.loc[minimum[1], annual_h2_prod_df.columns[0]] = new_demand_val
+        h2_demand_sites.loc[minimum[1], h2_demand_sites.columns[4]] = new_demand_val
         # Round specific cost value to 2dp
         specific_cost_value = round(minimum[3], 2)
         # Add costs of optimal transport route to total costs
         total_costs += loading * specific_cost_value
         # Calculates the total number of trailers required to transport
         # the annual loading amount, if the strings 'trailer' or 'truck' are in the name
-        if 'trailer' or 'truck' in minimum[2]:
+        if 'trailer' in minimum[2]:
             number_of_trucks = math.ceil(loading / trailer_costs[minimum[2]]['trailer_cap'])
+        else:
+            number_of_trucks = 0
         # A list of the main results parameters to save
         results_data_info = [minimum[0], minimum[1], loading, minimum[2], number_of_trucks, specific_cost_value,
                              loading * specific_cost_value]
@@ -284,7 +344,7 @@ def run_transport_optimization_model(distance_df, annual_h2_prod_df, annual_h2_d
         delete_entry = [minimum[0], minimum[1]]
         delete_list.append(delete_entry)
         # Updates total demand amount by subtracting loading value
-        demand_sum -= loading
+        h2_needed_sum -= loading
 
     return optimization_results
 

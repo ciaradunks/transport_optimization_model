@@ -1,0 +1,11 @@
+REQUIREMENTS FOR H2 TRANSPORT MODEL INPUTS
+
+- Distance matrix csv
+	- only values entered for distance
+	- if distance is between same site, set to 0
+	- same names as names in H2 sites csv
+
+- H2 sites csv
+	- same names as names in distance matrix csv
+	- if production, must be negative values
+	- if demand, must have a pressure required

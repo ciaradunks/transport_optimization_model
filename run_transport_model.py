@@ -1,28 +1,35 @@
 import numpy as np
 import pandas as pd
-from functions import run_transport_optimization_model, save_results_to_csv
+from functions import run_transport_optimization_model, save_results_to_csv, turn_string_into_value
+from dicts import compressor_costs, trailer_costs
 
 
 # --------- INPUTS --------- #
 
-headers = ['Production site A', 'Production site B', 'Demand site A', 'Demand site B', 'Demand site C']
-headers_prod = ['Production site A', 'Production site B']
-headers_dem = ['Demand site A', 'Demand site B', 'Demand site C']
-annual_production_title = 'Annual H2 production [kg]'
-annual_demand_title = 'Annual H2 demand [kg]'
+distance_matrix = pd.read_csv('TEST_distance_matrix.csv', encoding='unicode_escape')
+distance_matrix.rename(columns={'Unnamed: 0': 'Production/demand sites'}, inplace=True)
+distance_matrix = distance_matrix.set_index('Production/demand sites')
+distance_matrix = distance_matrix.replace('~', 0, regex=True)
+distance_matrix = distance_matrix.apply(np.vectorize(turn_string_into_value))
 
-distance_data = [[0, 12, 14, 5, 10], [12, 0, 5, 47, 1], [14, 5, 0, 70, 33], [5, 47, 70, 0, 2], [10, 1, 33, 2, 0]]
-annual_h2_prod_data = [100, 90]
-annual_h2_demand_data = [30, 90, 50]
+h2_prod_sites = pd.read_csv('TEST_h2_prod_sites_system1.csv', encoding='unicode_escape')
+h2_prod_sites.rename(columns={'Unnamed: 0': 'Production sites'}, inplace=True)
+h2_prod_sites = h2_prod_sites.set_index('Production sites')
 
-distance_array = np.array(distance_data)
+h2_demand_sites = pd.read_csv('TEST_h2_demand_sites_system1.csv', encoding='unicode_escape')
+h2_demand_sites.rename(columns={'Unnamed: 0': 'Demand sites'}, inplace=True)
+h2_demand_sites = h2_demand_sites.set_index('Demand sites')
 
-distance_df = pd.DataFrame(distance_array, columns=headers, index=headers)
-annual_h2_prod_df = pd.DataFrame(annual_h2_prod_data, columns= [annual_production_title], index=headers_prod)
-annual_h2_demand_df = pd.DataFrame(annual_h2_demand_data, columns= [annual_demand_title], index=headers_dem)
-
+# --------- TESTING --------- #
+total_h2_loading = 5000
+equation = compressor_costs['base_capital_cost'] * \
+           ((total_h2_loading / 365) ** compressor_costs['scaling_factor'])
+capex_h2_site = equation * compressor_costs['crf']
+opexfix_h2_site = 0.04 * equation
+test = str(h2_prod_sites.iloc[0]['H2 pressure']) + ', ' + str(trailer_costs['trailer_350']['pressure'])
+opexvar_h2_site = compressor_costs['energy_use'][test] * compressor_costs['elec_price'] * total_h2_loading
 
 # --------- FUNCTIONS --------- #
 
-optimization_results = run_transport_optimization_model(distance_df, annual_h2_prod_df, annual_h2_demand_df)
+optimization_results = run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_sites)
 save_results_to_csv(optimization_results)
