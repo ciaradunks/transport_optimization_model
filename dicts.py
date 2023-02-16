@@ -5,6 +5,7 @@
 
 trailer_costs = {
     # ToDo: I have made the trailer 350 bar for now (maybe change back to 300)
+    # ToDo: trailer_500 taken out and commented below to test compressor costs (no demand site has 500 bar pressure)
     'trailer_350': {
         'trailer_cap': 1165,  # kgH2?
         'pressure': 350,  # bar
@@ -23,6 +24,42 @@ trailer_costs = {
         'trailer_availability': 2,  # shifts/day
         'driver_hours': 4  # hours/shift
     },
+}
+
+# ---------- PIPELINE COST DICT ----------
+# ToDo: maybe adapt at some point
+# ToDo: check all these values or find reference, make sure all are needed
+# ToDo: check these are the right pipelines to look at
+# so far have only included costs of the pipeline, without compression at H2 plant + destination
+
+pipeline_costs = {
+    'pipeline_100': {
+        'cost_per_km': 275500,  # EUR/km
+        'pressure': 40,
+        'crf': 0.05,  # 5 %
+    },
+    'pipeline_retrofit': {
+        'cost_per_km': 100000,  # EUR/km
+        'pressure': 40,
+        'crf': 0.05,  # 5 %
+    }
+}
+
+# ---------- COMPRESSOR COST DICT ----------
+
+compressor_costs = {
+    'base_capital_cost': 28603,  # EUR
+    'scaling_factor': 0.6378,  # Equation (RLI)
+    'crf': 0.15,  # 15 %
+    'elec_price': 0.1855,  # EUR/kWh
+    # ToDo: check where these values come from and which to use
+    'energy_use': {
+        '40, 350': 1.52,
+        '350, 500': 0.26
+    }
+}
+
+"""
     'trailer_500': {
         'trailer_cap': 1400,  # kgH2?
         'pressure': 500,  # bar
@@ -41,35 +78,4 @@ trailer_costs = {
         'trailer_availability': 2,  # shifts/day
         'driver_hours': 4  # hours/shift
     }
-}
-
-# ---------- PIPELINE COST DICT ----------
-# ToDo: maybe adapt at some point
-# ToDo: check all these values or find reference, make sure all are needed
-# ToDo: check these are the right pipelines to look at
-# so far have only included costs of the pipeline, without compression at H2 plant + destination
-
-pipeline_costs = {
-    'pipeline_100': {
-        'cost_per_km': 275500,  # EUR/km
-        'crf': 0.05,  # 5 %
-    },
-    'pipeline_retrofit': {
-        'cost_per_km': 100000,  # EUR/km
-        'crf': 0.05,  # 5 %
-    }
-}
-
-# ---------- COMPRESSOR COST DICT ----------
-
-compressor_costs = {
-    'base_capital_cost': 28603,  # EUR
-    'scaling_factor': 0.6378,  # Equation (RLI)
-    'crf': 0.15,  # 15 %
-    'elec_price': 0.1855,  # EUR/kWh
-    # ToDo: check where these values come from and which to use
-    'energy_use': {
-        '40, 350': 1.52,
-        '350, 500': 0.26
-    }
-}
+"""

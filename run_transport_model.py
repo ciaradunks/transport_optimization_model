@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from functions import run_transport_optimization_model, save_results_to_csv, turn_string_into_value
-from dicts import compressor_costs, trailer_costs
 
 
 # --------- INPUTS --------- #
@@ -20,14 +19,6 @@ h2_demand_sites = pd.read_csv('TEST_h2_demand_sites_system1.csv', encoding='unic
 h2_demand_sites.rename(columns={'Unnamed: 0': 'Demand sites'}, inplace=True)
 h2_demand_sites = h2_demand_sites.set_index('Demand sites')
 
-# --------- TESTING --------- #
-total_h2_loading = 5000
-equation = compressor_costs['base_capital_cost'] * \
-           ((total_h2_loading / 365) ** compressor_costs['scaling_factor'])
-capex_h2_site = equation * compressor_costs['crf']
-opexfix_h2_site = 0.04 * equation
-test = str(h2_prod_sites.iloc[0]['H2 pressure']) + ', ' + str(trailer_costs['trailer_350']['pressure'])
-opexvar_h2_site = compressor_costs['energy_use'][test] * compressor_costs['elec_price'] * total_h2_loading
 
 # --------- FUNCTIONS --------- #
 

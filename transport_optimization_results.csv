@@ -1,7 +1,7 @@
 Production site,Demand site,Annual H2 transported [kg],Transport mode,Number of trailers required,Specific cost [EUR/kg],Total annual cost [EUR]
-SAB,Regionalbahn Ab Bodensee + Bottenschein,5000,trailer_350,5,0.0,0.0
-SolarComplex,Regionalbahn Ab Bodensee + Bottenschein,26079,pipeline_retrofit,0,0.1,2607.9
+SAB,Regionalbahn Ab Bodensee + Bottenschein,5000,pipeline_100,0,0.02,100.0
+SolarComplex,Regionalbahn Ab Bodensee + Bottenschein,26079,pipeline_retrofit,0,0.11,2868.69
 Stadtwerke Tübingen,Bosch,65000,pipeline_retrofit,0,0.4,26000.0
-SOWITEC (18 MW wind),EKPO GmbH,79083,pipeline_retrofit,0,1.38,109134.54
+SOWITEC (18 MW wind),EKPO GmbH,79083,pipeline_retrofit,0,1.39,109925.37
 Farinetz GmbH,Bosch,9460,pipeline_retrofit,0,2.2,20812.0
-Farinetz GmbH,Technische Betriebsdienste Reutlingen,1560,trailer_350,2,4.21,6567.6
+Farinetz GmbH,Technische Betriebsdienste Reutlingen,1560,trailer_350,2,13.01,20295.6
