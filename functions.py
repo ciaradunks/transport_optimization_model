@@ -79,28 +79,44 @@ def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site
     #  the compressor size for the sites will keep increasing as the function loops through production and
     #  demand sites, meaning the last entry in the dict will surely always have the largest compressor size
     #  so lowest compression costs per kg
-    # ToDo: also I have divided the total compression costs by the 
-    # Calculates new compressor size by taking previous compressor
+    # ToDo: also I have divided the total costs by the compressor size and multiplied by the mass flow
+    #  to get the costs for the proportion of the compressor that is used for the specific loading.
+    #  Not sure this is the correct way to do it though
+    # Gets pressure value for production site (from h2_prod_sites dataframe)
     pressure_1 = h2_prod_sites['H2 pressure'][prod_site]
+    # Gets pressure value from transport dict
     pressure_2 = transport_mode['pressure']
+    # Gets needed pressure value for demand site (from h2_demand_sites dataframe)
     pressure_3 = h2_demand_sites['H2 pressure needed'][demand_site]
+    # checks that the pressure values are not the same and ensures there is a loading amount above zero
     if pressure_1 != pressure_2 and total_h2_loading > 0:
-        new_cmpr_size = h2_prod_sites['Compressor size'][prod_site] + total_h2_loading
+        # new compressor size is calculated as old compressor size + mass flow of this specific compression
+        # (average total h2 loading) (kg/day)
+        new_cmpr_size = h2_prod_sites['Compressor size'][prod_site] + total_h2_loading / 365
+        # equation for investment costs (see lausitz_surface_graph_3d file for the equation)
         eq_prod_site = cmpr_costs['base_capital_cost'] * \
                              ((new_cmpr_size / 365)
                               ** cmpr_costs['scaling_factor'])
+        # multiply investment costs by annuity factor
         capex_prod_site = eq_prod_site * cmpr_costs['crf']
+        # OPEX is 4 % of investment costs
         opexfix_prod_site = 0.04 * eq_prod_site
+        # Gets a string pairing in the form 'x,y' where x is the production site pressure and y is transport pressure
         pressures_prod_site = str(h2_prod_sites['H2 pressure'][prod_site]) + ', ' + \
                               str(transport_mode['pressure'])
+        # Calculates variable OPEX for compression (see lausitz file again for equation)
         opexvar_prod_site = cmpr_costs['energy_use'][pressures_prod_site] * \
                             cmpr_costs['elec_price'] * new_cmpr_size
+        # Annual production site costs are the investment costs + O&M costs /fixed and variable), then multiplied by
+        # the mass flow for this specific compression / the mass flow for the whole compressor, to get the costs
+        # only for this specific compression (Note: this might change)
         prod_site_costs = capex_prod_site + opexfix_prod_site + opexvar_prod_site * ((total_h2_loading / 365) / new_cmpr_size)
     else:
+        # if the pressures are the same or the loading amount is zero, there is no compression
         prod_site_costs = 0
-
+    # Repeat from comments above for production site compression, just now considering transport and demand site pressures
     if pressure_2 < pressure_3 and total_h2_loading > 0:
-        new_cmpr_size = h2_demand_sites['Compressor size'][demand_site] + total_h2_loading
+        new_cmpr_size = h2_demand_sites['Compressor size'][demand_site] + total_h2_loading / 365
         equation_demand_site = cmpr_costs['base_capital_cost'] * \
                                ((h2_demand_sites['Compressor size'][demand_site] + total_h2_loading / 365)
                                 ** cmpr_costs['scaling_factor'])
