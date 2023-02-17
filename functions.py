@@ -220,6 +220,8 @@ def get_pipeline_costs(total_h2_loading, distance, pipeline_costs, compressor_co
         pipeline_capex = pl['crf'] * (distance * pl['cost_per_km'])
         pipeline_opex_fix = 0.04 * pipeline_capex
         pipeline_cost_tot = pipeline_capex + pipeline_opex_fix
+
+        # ToDo Change compressors to zero if they have no real impact
         cost_per_kg_compressor = get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites,
                                                       demand_site, h2_demand_sites,
                                                       compressor_costs,
