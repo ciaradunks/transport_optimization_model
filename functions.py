@@ -103,7 +103,7 @@ def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site
         # h2 loading is positive. Vice versa skip if any of these are false
         if pressures[i + 1] <= pressures[i] or total_h2_loading <= 0:
             continue
-        old_cmpr_size = sites[str('Compressor_size_', pressures[i+1], '_bar')][site[i]]
+        old_cmpr_size = sites['Compressor_size_'+ str(pressures[i+1])+ '_bar'][site[i]]
         old_cmpr_cost = cmpr_costs['base_capital_cost'] * \
                         (old_cmpr_size
                          ** cmpr_costs['scaling_factor'])
@@ -115,8 +115,6 @@ def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site
         new_cmpr_cost = cmpr_costs['base_capital_cost'] * \
                         (new_cmpr_size
                          ** cmpr_costs['scaling_factor'])
-
-        cmpr_size_delta = new_cmpr_size - old_cmpr_size
 
         # cost for compressing is only the extra amount of compressor size and not the full size
         # this way scaling effects are taken into account e.g. compressing 20kg/d instead of 10kg/day
@@ -136,7 +134,6 @@ def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site
         # Annual production site costs are the investment costs + O&M costs /fixed and variable), then multiplied by
         # the mass flow for this specific compression / the mass flow for the whole compressor, to get the costs
         # only for this specific compression (Note: this might change)
-
         site_costs.append(capex_site + opexfix_site + opexvar_site)
 
     cmpr_costs_tot = sum(site_costs)
@@ -312,9 +309,9 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
     # ToDo get pressures from somewere
     for size in [350,500]:
         # Add column for compressor size at production sites (initially this is zero)
-        h2_prod_sites[str('Compressor_size_', size, '_bar')] = 0
+        h2_prod_sites['Compressor_size_'+ str(size)+ '_bar'] = 0
         # Add column for compressor size at demand sites (initially this is zero)
-        h2_demand_sites[str('Compressor_size_', size, '_bar')] = 0
+        h2_demand_sites['Compressor_size_'+ str(size)+ '_bar'] = 0
 
     # While loop until there is no demand left to be fulfilled
     while h2_needed_sum > 0:
@@ -370,14 +367,37 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
         loading = costs_dict_specific[minimum[0]][minimum[1]][dict_entries[1]]
         # Calculates and updates the new available H2 amount for chosen production site
         # by subtracting the loading amount
-        current_prod_val = h2_prod_sites.loc[minimum[0], h2_prod_sites.columns[4]]
+        current_prod_val = h2_prod_sites.loc[minimum[0], 'Available H2']
         new_prod_val = current_prod_val - loading
-        h2_prod_sites.loc[minimum[0], h2_prod_sites.columns[4]] = new_prod_val
+
+        h2_prod_sites.loc[minimum[0], 'Available H2'] = new_prod_val
+
+        transport_mode = minimum[2]
+        if 'pipeline' in transport_mode:
+            transport_pressure = pipeline_costs[transport_mode]['pressure']
+        elif 'trailer' in transport_mode:
+            transport_pressure = trailer_costs[transport_mode]['pressure']
+        else:
+            assert 0, "Transport mode could not be identified"
+
+        # Update compressor size at prod size
+        compressor_type= 'Compressor_size_' + str(transport_pressure) + '_bar'
+        if transport_pressure > h2_prod_sites.loc[minimum[0], 'H2 pressure']:
+            h2_prod_sites.loc[minimum[0], compressor_type] += loading/365
+
+
+
+        # Update Compressor size at demand size
+        demand_pressure = h2_demand_sites.loc[minimum[1], 'H2 pressure needed']
+        compressor_type= 'Compressor_size_' + str(demand_pressure) + '_bar'
+        if transport_pressure < demand_pressure:
+            h2_demand_sites.loc[minimum[1], compressor_type] += loading/365
+
         # Calculates and updates the new available demand amount for chosen demand site by subtracting
         # the loading amount
-        current_demand_val = h2_demand_sites.loc[minimum[1], h2_demand_sites.columns[4]]
+        current_demand_val = h2_demand_sites.loc[minimum[1], 'H2 needed']
         new_demand_val = current_demand_val - loading
-        h2_demand_sites.loc[minimum[1], h2_demand_sites.columns[4]] = new_demand_val
+        h2_demand_sites.loc[minimum[1], 'H2 needed'] = new_demand_val
         # Round specific cost value to 2dp
         specific_cost_value = round(minimum[3], 2)
         # Add costs of optimal transport route to total costs
