@@ -168,6 +168,10 @@ def get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_cost
     for trailer_type in trailer_costs:
         trailer = trailer_costs[trailer_type]
         if distance > 0:
+            # trailer_capex = ((amount_of_trailer_capacities_h2_per_day* time_needed_per_trip) \
+            #                   / hours_of_availablilty_per_year) * costs of the trailer
+            # ToDo Conservative would be to always have the cost of an integer amount trailer
+            # Fractions mean there is a renting system in place or smth similar
             trailer_capex = (total_h2_loading / 365 / trailer['trailer_cap']) * \
                             (((distance * 2) / trailer['av_speed']) + trailer['unload_time']) / \
                             (trailer['delivery_days'] * trailer['trailer_availability'] * trailer[
@@ -175,6 +179,7 @@ def get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_cost
                             (trailer['crf_trailer'] * trailer['tube_trailer_cost'] * trailer[
                                 'crf_cab'] * trailer[
                                  'cab_cost'])
+            # ToDo 0.05 should be in dict
 
             trailer_opex_fix = 0.05 * trailer_capex  # 5 % of CAPEX
             trailer_opex_var = (0.01 * trailer_capex) + \
@@ -221,7 +226,7 @@ def get_pipeline_costs(total_h2_loading, distance, pipeline_costs, compressor_co
         pipeline_opex_fix = 0.04 * pipeline_capex
         pipeline_cost_tot = pipeline_capex + pipeline_opex_fix
 
-        # ToDo Change compressors to zero if they have no real impact
+        # ToDo Change compressors to zero if they have no real impacts
         cost_per_kg_compressor = get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites,
                                                       demand_site, h2_demand_sites,
                                                       compressor_costs,
@@ -406,7 +411,7 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
         # Calculates the total number of trailers required to transport
         # the annual loading amount, if the strings 'trailer' or 'truck' are in the name
         if 'trailer' in minimum[2]:
-            # ToDo change ceil, round in the end
+            # ToDo change ceil. Also  this is the number of trips and not of trailers
             number_of_trucks = math.ceil(loading / trailer_costs[minimum[2]]['trailer_cap'])
         else:
             number_of_trucks = 0
