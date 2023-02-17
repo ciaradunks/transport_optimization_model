@@ -22,5 +22,11 @@ h2_demand_sites = h2_demand_sites.set_index('Demand sites')
 
 # --------- FUNCTIONS --------- #
 
+import time
+import os
+import sys
+t = time.time()
+
 optimization_results = run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_sites)
+
 save_results_to_csv(optimization_results)

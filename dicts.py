@@ -24,6 +24,25 @@ trailer_costs = {
         'trailer_availability': 2,  # shifts/day
         'driver_hours': 4  # hours/shift
     },
+    'trailer_500': {
+        'trailer_cap': 1400,  # kgH2?
+        'pressure': 500,  # bar
+        'tube_trailer_cost': 1000000,  # EUR
+        'av_speed': 50,  # km/h
+        'unload_time': 1.5,  # h
+        'crf_trailer': 0.11,  # 11 %
+        'crf_cab': 0.15,  # 15 %
+        'cab_cost': 200000,  # EUR?
+        'fuel_price': 1,  # EUR/l
+        'drivers_wage': 35,  # EUR/h
+        'fuel_economy': 0.3,  # l/km
+        'maut': 0.187,  # EUR/km
+        'maut_distance': 0.8,  # %
+        'delivery_days': 250,  # days/year
+        'trailer_availability': 2,  # shifts/day
+        'driver_hours': 4  # hours/shift
+    }
+
 }
 
 # ---------- PIPELINE COST DICT ----------
@@ -50,12 +69,13 @@ pipeline_costs = {
 compressor_costs = {
     'base_capital_cost': 28603,  # EUR
     'scaling_factor': 0.6378,  # Equation (RLI)
-    'crf': 0.15,  # 15 %
+    'crf': 0.08,  # 15 %
     'elec_price': 0.1855,  # EUR/kWh
     # ToDo: check where these values come from and which to use
     'energy_use': {
         '40, 350': 1.52,
-        '350, 500': 0.26
+        '350, 500': 0.26,
+        '40, 500': 1.52+0.26,
     }
 }
 

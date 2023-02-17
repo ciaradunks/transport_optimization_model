@@ -109,8 +109,8 @@ def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site
                          ** cmpr_costs['scaling_factor'])
 
         # new compressor size is calculated as old compressor size + mass flow of this specific compression
-        # (average total h2 loading) (kg/day)
-        new_cmpr_size = old_cmpr_size + total_h2_loading / 365
+        # (average total h2 loading) (kg/h)
+        new_cmpr_size = old_cmpr_size + total_h2_loading / (365*24)
         # equation for investment costs (see lausitz_surface_graph_3d file for the equation)
         new_cmpr_cost = cmpr_costs['base_capital_cost'] * \
                         (new_cmpr_size
@@ -382,7 +382,7 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
         # Update compressor size at prod size
         compressor_type= 'Compressor_size_' + str(transport_pressure) + '_bar'
         if transport_pressure > h2_prod_sites.loc[minimum[0], 'H2 pressure']:
-            h2_prod_sites.loc[minimum[0], compressor_type] += loading/365
+            h2_prod_sites.loc[minimum[0], compressor_type] += loading/(365*24)
 
 
 
@@ -390,7 +390,7 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
         demand_pressure = h2_demand_sites.loc[minimum[1], 'H2 pressure needed']
         compressor_type= 'Compressor_size_' + str(demand_pressure) + '_bar'
         if transport_pressure < demand_pressure:
-            h2_demand_sites.loc[minimum[1], compressor_type] += loading/365
+            h2_demand_sites.loc[minimum[1], compressor_type] += loading/(365*24)
 
         # Calculates and updates the new available demand amount for chosen demand site by subtracting
         # the loading amount
