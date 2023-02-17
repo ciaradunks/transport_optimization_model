@@ -215,7 +215,6 @@ def get_pipeline_costs(total_h2_loading, distance, pipeline_costs, compressor_co
     """
 
     cost_per_kg_pipeline = {}
-
     for pipeline_type in pipeline_costs:
         pl = pipeline_costs[pipeline_type]
         pipeline_capex = pl['crf'] * (distance * pl['cost_per_km'])
