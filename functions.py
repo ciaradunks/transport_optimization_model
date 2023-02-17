@@ -404,6 +404,7 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
         # Calculates the total number of trailers required to transport
         # the annual loading amount, if the strings 'trailer' or 'truck' are in the name
         if 'trailer' in minimum[2]:
+            # ToDo change ceil, round in the end
             number_of_trucks = math.ceil(loading / trailer_costs[minimum[2]]['trailer_cap'])
         else:
             number_of_trucks = 0

@@ -56,12 +56,13 @@ pipeline_costs = {
         'cost_per_km': 275500,  # EUR/km
         'pressure': 40,
         'crf': 0.05,  # 5 %
-    },
-    'pipeline_retrofit': {
-        'cost_per_km': 100000,  # EUR/km
-        'pressure': 40,
-        'crf': 0.05,  # 5 %
     }
+    # ,
+    # 'pipeline_retrofit': {
+    #     'cost_per_km': 100000,  # EUR/km
+    #     'pressure': 40,
+    #     'crf': 0.05,  # 5 %
+    # }
 }
 
 # ---------- COMPRESSOR COST DICT ----------
