@@ -96,14 +96,14 @@ def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site
     pressures = [pressure_1, pressure_2, pressure_3]
 
     # Initialization of costs through compressors
-    cost_per_kg_cmpr_loop = 0
+    cost_per_kg_cmpr = 0
     site_costs = [0]
     for i, sites in enumerate(prod_and_demand_sites):
         # only calculate the compressor cost if the next stage of pressure is higher and total
         # h2 loading is positive. Vice versa skip if any of these are false
         if pressures[i + 1] <= pressures[i] or total_h2_loading <= 0:
             continue
-        old_cmpr_size = sites['Compressor size'][site[i]]
+        old_cmpr_size = sites[str('Compressor_size_', pressures[i+1], '_bar')][site[i]]
         old_cmpr_cost = cmpr_costs['base_capital_cost'] * \
                         (old_cmpr_size
                          ** cmpr_costs['scaling_factor'])
@@ -142,76 +142,10 @@ def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site
     cmpr_costs_tot = sum(site_costs)
 
     if cmpr_costs_tot != 0:
-        cost_per_kg_cmpr_loop = cmpr_costs_tot / total_h2_loading
-        print("cmprs: " , cost_per_kg_cmpr_loop)
+        cost_per_kg_cmpr = cmpr_costs_tot / total_h2_loading
         assert cmpr_costs_tot > 0
         assert total_h2_loading > 0
 
-    #### Old Calc
-    if pressure_1 != pressure_2 and total_h2_loading > 0:
-        old_cmpr_size = h2_prod_sites['Compressor size'][prod_site]
-        old_cmpr_cost = cmpr_costs['base_capital_cost'] * \
-                        (old_cmpr_size
-                         ** cmpr_costs['scaling_factor'])
-
-        # new compressor size is calculated as old compressor size + mass flow of this specific compression
-        # (average total h2 loading) (kg/day)
-        new_cmpr_size = old_cmpr_size + total_h2_loading / 365
-        # equation for investment costs (see lausitz_surface_graph_3d file for the equation)
-        new_cmpr_cost = cmpr_costs['base_capital_cost'] * \
-                        (new_cmpr_size
-                         ** cmpr_costs['scaling_factor'])
-
-        # cost for compressing is only the extra amount of compressor size and not the full size
-        # this way scaling effects are taken into account e.g. compressing 20kg/d instead of 10kg/day
-        # might be less than twice the cost of 10kg/day
-        eq_prod_site = new_cmpr_cost - old_cmpr_cost
-        assert eq_prod_site > 0
-        # multiply investment costs by annuity factor
-        capex_prod_site = eq_prod_site * cmpr_costs['crf']
-        # OPEX is 4 % of investment costs
-        opexfix_prod_site = 0.04 * eq_prod_site
-        # Gets a string pairing in the form 'x,y' where x is the production site pressure and y is transport pressure
-        pressures_prod_site = str(h2_prod_sites['H2 pressure'][prod_site]) + ', ' + \
-                              str(transport_mode['pressure'])
-        # Calculates variable OPEX for compression (see lausitz file again for equation)
-
-        ## Changed from new_cmpr_size to total_h2_loading
-        opexvar_prod_site = cmpr_costs['energy_use'][pressures_prod_site] * \
-                            cmpr_costs['elec_price'] * total_h2_loading
-        # Annual production site costs are the investment costs + O&M costs /fixed and variable), then multiplied by
-        # the mass flow for this specific compression / the mass flow for the whole compressor, to get the costs
-        # only for this specific compression (Note: this might change)
-        prod_site_costs = capex_prod_site + opexfix_prod_site + opexvar_prod_site * (
-                (total_h2_loading / 365) / new_cmpr_size)
-    else:
-        # if the pressures are the same or the loading amount is zero, there is no compression
-        prod_site_costs = 0
-    # Repeat from comments above for production site compression, just now considering transport and demand site pressures
-    if pressure_2 < pressure_3 and total_h2_loading > 0:
-        new_cmpr_size = h2_demand_sites['Compressor size'][demand_site] + total_h2_loading / 365
-        equation_demand_site = cmpr_costs['base_capital_cost'] * \
-                               ((h2_demand_sites['Compressor size'][
-                                     demand_site] + total_h2_loading / 365)
-                                ** cmpr_costs['scaling_factor'])
-        capex_demand_site = equation_demand_site * cmpr_costs['crf']
-        opexfix_demand_site = 0.04 * equation_demand_site
-        pressures_demand_site = str(transport_mode['pressure']) + ', ' + \
-                                str(h2_demand_sites['H2 pressure needed'][demand_site])
-        opexvar_demand_site = cmpr_costs['energy_use'][pressures_demand_site] * \
-                              cmpr_costs['elec_price'] * total_h2_loading
-        demand_site_costs = (capex_demand_site + opexfix_demand_site + opexvar_demand_site) * (
-                (total_h2_loading / 365) / new_cmpr_size)
-    else:
-        demand_site_costs = 0
-
-    cmpr_costs_tot = prod_site_costs + demand_site_costs
-    if cmpr_costs_tot != 0:
-        cost_per_kg_cmpr = cmpr_costs_tot / total_h2_loading
-    else:
-        cost_per_kg_cmpr = 0
-
-    assert cost_per_kg_cmpr == cost_per_kg_cmpr_loop
     return cost_per_kg_cmpr
 
 
@@ -261,7 +195,6 @@ def get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_cost
                                                        h2_demand_sites, compressor_costs,
                                                        trailer)
         if total_h2_loading > 0:
-            print("Trailer cost: ", trailer_cost_tot / total_h2_loading)
             cost_per_kg_trailer[trailer_type] = (
                                                         trailer_cost_tot / total_h2_loading) + costs_per_kg_compressor
         else:
@@ -376,10 +309,12 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
     h2_demand_sites['H2 needed'] = h2_demand_sites['Total H2 demand']
     # The sum of the demands for all demand sites
     h2_needed_sum = h2_demand_sites.sum()['H2 needed']
-    # Add column for compressor size at production sites (initially this is zero)
-    h2_prod_sites['Compressor size'] = 0
-    # Add column for compressor size at demand sites (initially this is zero)
-    h2_demand_sites['Compressor size'] = 0
+    # ToDo get pressures from somewere
+    for size in [350,500]:
+        # Add column for compressor size at production sites (initially this is zero)
+        h2_prod_sites[str('Compressor_size_', size, '_bar')] = 0
+        # Add column for compressor size at demand sites (initially this is zero)
+        h2_demand_sites[str('Compressor_size_', size, '_bar')] = 0
 
     # While loop until there is no demand left to be fulfilled
     while h2_needed_sum > 0:
