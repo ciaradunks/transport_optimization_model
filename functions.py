@@ -313,6 +313,7 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
     # The sum of the demands for all demand sites
     h2_needed_sum = h2_demand_sites.sum()['H2 needed']
     # ToDo get pressures from somewere
+    # ToDO Pressures dont matter and can be removed
     for size in [350,500]:
         # Add column for compressor size at production sites (initially this is zero)
         h2_prod_sites['Compressor_size_'+ str(size)+ '_bar'] = 0
