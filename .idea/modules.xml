@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/h2_transport_model.iml" filepath="$PROJECT_DIR$/.idea/h2_transport_model.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/transport_optimization_model.iml" filepath="$PROJECT_DIR$/.idea/transport_optimization_model.iml" />
     </modules>
   </component>
 </project>

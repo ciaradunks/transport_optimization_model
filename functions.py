@@ -73,7 +73,8 @@ def get_total_h2_loading(h2_yearly_prod, h2_yearly_demand):
     return total_h2_loading
 
 
-def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site, h2_demand_sites, cmpr_costs,
+def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site, h2_demand_sites,
+                         cmpr_costs,
                          transport_mode):
     # ToDo: need to figure out if this way actually makes sense, because at the moment
     #  the compressor size for the sites will keep increasing as the function loops through production and
@@ -89,14 +90,83 @@ def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site
     # Gets needed pressure value for demand site (from h2_demand_sites dataframe)
     pressure_3 = h2_demand_sites['H2 pressure needed'][demand_site]
     # checks that the pressure values are not the same and ensures there is a loading amount above zero
-    if pressure_1 != pressure_2 and total_h2_loading > 0:
+
+    prod_and_demand_sites = [h2_prod_sites, h2_demand_sites]
+    site = [prod_site, demand_site]
+    pressures = [pressure_1, pressure_2, pressure_3]
+
+    # Initialization of costs through compressors
+    cost_per_kg_cmpr_loop = 0
+    site_costs = [0]
+    for i, sites in enumerate(prod_and_demand_sites):
+        # only calculate the compressor cost if the next stage of pressure is higher and total
+        # h2 loading is positive. Vice versa skip if any of these are false
+        if pressures[i + 1] <= pressures[i] or total_h2_loading <= 0:
+            continue
+        old_cmpr_size = sites['Compressor size'][site[i]]
+        old_cmpr_cost = cmpr_costs['base_capital_cost'] * \
+                        (old_cmpr_size
+                         ** cmpr_costs['scaling_factor'])
+
         # new compressor size is calculated as old compressor size + mass flow of this specific compression
         # (average total h2 loading) (kg/day)
-        new_cmpr_size = h2_prod_sites['Compressor size'][prod_site] + total_h2_loading / 365
+        new_cmpr_size = old_cmpr_size + total_h2_loading / 365
         # equation for investment costs (see lausitz_surface_graph_3d file for the equation)
-        eq_prod_site = cmpr_costs['base_capital_cost'] * \
-                             ((new_cmpr_size / 365)
-                              ** cmpr_costs['scaling_factor'])
+        new_cmpr_cost = cmpr_costs['base_capital_cost'] * \
+                        (new_cmpr_size
+                         ** cmpr_costs['scaling_factor'])
+
+        cmpr_size_delta = new_cmpr_size - old_cmpr_size
+
+        # cost for compressing is only the extra amount of compressor size and not the full size
+        # this way scaling effects are taken into account e.g. compressing 20kg/d instead of 10kg/day
+        # might be less than twice the cost of 10kg/day
+        eq_site = new_cmpr_cost - old_cmpr_cost
+        assert eq_site > 0
+        # multiply investment costs by annuity factor
+        capex_site = eq_site * cmpr_costs['crf']
+        # OPEX is 4 % of investment costs
+        opexfix_site = 0.04 * eq_site
+        # Gets a string pairing in the form 'x,y' where x is the production site pressure and y is transport pressure
+        pressures_site = str(pressures[i]) + ', ' + \
+                         str(pressures[i + 1])
+        # Calculates variable OPEX for compression (see lausitz file again for equation)
+        opexvar_site = cmpr_costs['energy_use'][pressures_site] * \
+                       cmpr_costs['elec_price'] * total_h2_loading
+        # Annual production site costs are the investment costs + O&M costs /fixed and variable), then multiplied by
+        # the mass flow for this specific compression / the mass flow for the whole compressor, to get the costs
+        # only for this specific compression (Note: this might change)
+
+        site_costs.append(capex_site + opexfix_site + opexvar_site)
+
+    cmpr_costs_tot = sum(site_costs)
+
+    if cmpr_costs_tot != 0:
+        cost_per_kg_cmpr_loop = cmpr_costs_tot / total_h2_loading
+        print("cmprs: " , cost_per_kg_cmpr_loop)
+        assert cmpr_costs_tot > 0
+        assert total_h2_loading > 0
+
+    #### Old Calc
+    if pressure_1 != pressure_2 and total_h2_loading > 0:
+        old_cmpr_size = h2_prod_sites['Compressor size'][prod_site]
+        old_cmpr_cost = cmpr_costs['base_capital_cost'] * \
+                        (old_cmpr_size
+                         ** cmpr_costs['scaling_factor'])
+
+        # new compressor size is calculated as old compressor size + mass flow of this specific compression
+        # (average total h2 loading) (kg/day)
+        new_cmpr_size = old_cmpr_size + total_h2_loading / 365
+        # equation for investment costs (see lausitz_surface_graph_3d file for the equation)
+        new_cmpr_cost = cmpr_costs['base_capital_cost'] * \
+                        (new_cmpr_size
+                         ** cmpr_costs['scaling_factor'])
+
+        # cost for compressing is only the extra amount of compressor size and not the full size
+        # this way scaling effects are taken into account e.g. compressing 20kg/d instead of 10kg/day
+        # might be less than twice the cost of 10kg/day
+        eq_prod_site = new_cmpr_cost - old_cmpr_cost
+        assert eq_prod_site > 0
         # multiply investment costs by annuity factor
         capex_prod_site = eq_prod_site * cmpr_costs['crf']
         # OPEX is 4 % of investment costs
@@ -105,12 +175,15 @@ def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site
         pressures_prod_site = str(h2_prod_sites['H2 pressure'][prod_site]) + ', ' + \
                               str(transport_mode['pressure'])
         # Calculates variable OPEX for compression (see lausitz file again for equation)
+
+        ## Changed from new_cmpr_size to total_h2_loading
         opexvar_prod_site = cmpr_costs['energy_use'][pressures_prod_site] * \
-                            cmpr_costs['elec_price'] * new_cmpr_size
+                            cmpr_costs['elec_price'] * total_h2_loading
         # Annual production site costs are the investment costs + O&M costs /fixed and variable), then multiplied by
         # the mass flow for this specific compression / the mass flow for the whole compressor, to get the costs
         # only for this specific compression (Note: this might change)
-        prod_site_costs = capex_prod_site + opexfix_prod_site + opexvar_prod_site * ((total_h2_loading / 365) / new_cmpr_size)
+        prod_site_costs = capex_prod_site + opexfix_prod_site + opexvar_prod_site * (
+                (total_h2_loading / 365) / new_cmpr_size)
     else:
         # if the pressures are the same or the loading amount is zero, there is no compression
         prod_site_costs = 0
@@ -118,7 +191,8 @@ def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site
     if pressure_2 < pressure_3 and total_h2_loading > 0:
         new_cmpr_size = h2_demand_sites['Compressor size'][demand_site] + total_h2_loading / 365
         equation_demand_site = cmpr_costs['base_capital_cost'] * \
-                               ((h2_demand_sites['Compressor size'][demand_site] + total_h2_loading / 365)
+                               ((h2_demand_sites['Compressor size'][
+                                     demand_site] + total_h2_loading / 365)
                                 ** cmpr_costs['scaling_factor'])
         capex_demand_site = equation_demand_site * cmpr_costs['crf']
         opexfix_demand_site = 0.04 * equation_demand_site
@@ -126,7 +200,8 @@ def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site
                                 str(h2_demand_sites['H2 pressure needed'][demand_site])
         opexvar_demand_site = cmpr_costs['energy_use'][pressures_demand_site] * \
                               cmpr_costs['elec_price'] * total_h2_loading
-        demand_site_costs = (capex_demand_site + opexfix_demand_site + opexvar_demand_site) * ((total_h2_loading / 365) / new_cmpr_size)
+        demand_site_costs = (capex_demand_site + opexfix_demand_site + opexvar_demand_site) * (
+                (total_h2_loading / 365) / new_cmpr_size)
     else:
         demand_site_costs = 0
 
@@ -136,6 +211,7 @@ def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site
     else:
         cost_per_kg_cmpr = 0
 
+    assert cost_per_kg_cmpr == cost_per_kg_cmpr_loop
     return cost_per_kg_cmpr
 
 
@@ -163,9 +239,11 @@ def get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_cost
         if distance > 0:
             trailer_capex = (total_h2_loading / 365 / trailer['trailer_cap']) * \
                             (((distance * 2) / trailer['av_speed']) + trailer['unload_time']) / \
-                            (trailer['delivery_days'] * trailer['trailer_availability'] * trailer['driver_hours']) * \
-                            (trailer['crf_trailer'] * trailer['tube_trailer_cost'] * trailer['crf_cab'] * trailer[
-                                'cab_cost'])
+                            (trailer['delivery_days'] * trailer['trailer_availability'] * trailer[
+                                'driver_hours']) * \
+                            (trailer['crf_trailer'] * trailer['tube_trailer_cost'] * trailer[
+                                'crf_cab'] * trailer[
+                                 'cab_cost'])
 
             trailer_opex_fix = 0.05 * trailer_capex  # 5 % of CAPEX
             trailer_opex_var = (0.01 * trailer_capex) + \
@@ -183,14 +261,17 @@ def get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_cost
                                                        h2_demand_sites, compressor_costs,
                                                        trailer)
         if total_h2_loading > 0:
-            cost_per_kg_trailer[trailer_type] = (trailer_cost_tot / total_h2_loading) + costs_per_kg_compressor
+            print("Trailer cost: ", trailer_cost_tot / total_h2_loading)
+            cost_per_kg_trailer[trailer_type] = (
+                                                        trailer_cost_tot / total_h2_loading) + costs_per_kg_compressor
         else:
             cost_per_kg_trailer = None
 
     return cost_per_kg_trailer
 
 
-def get_pipeline_costs(total_h2_loading, distance, pipeline_costs, compressor_costs, prod_site, h2_prod_sites,
+def get_pipeline_costs(total_h2_loading, distance, pipeline_costs, compressor_costs, prod_site,
+                       h2_prod_sites,
                        demand_site, h2_demand_sites):
     # ToDo: make sure costs are calculated correctly
     # ToDo: decide if the diameter of the pipeline needs to be considered
@@ -211,10 +292,12 @@ def get_pipeline_costs(total_h2_loading, distance, pipeline_costs, compressor_co
         pipeline_opex_fix = 0.04 * pipeline_capex
         pipeline_cost_tot = pipeline_capex + pipeline_opex_fix
         cost_per_kg_compressor = get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites,
-                                                demand_site, h2_demand_sites, compressor_costs,
-                                                pl)
+                                                      demand_site, h2_demand_sites,
+                                                      compressor_costs,
+                                                      pl)
         if total_h2_loading > 0:
-            cost_per_kg_pipeline[pipeline_type] = (pipeline_cost_tot / total_h2_loading) + cost_per_kg_compressor
+            cost_per_kg_pipeline[pipeline_type] = (
+                                                          pipeline_cost_tot / total_h2_loading) + cost_per_kg_compressor
         else:
             cost_per_kg_pipeline = None
     return cost_per_kg_pipeline
@@ -239,7 +322,8 @@ def get_cheapest_cost(costs_dict_specific, dict_entries):
     for prod_entry, dem_entry in costs_dict_specific.items():
         for dem_entry, cost_load_entry in dem_entry.items():
             # Takes only the specific costs from the dictionary and loops through all
-            cost_entry_dict = dict((k, cost_load_entry[k]) for k in [dict_entries[0]] if k in cost_load_entry)
+            cost_entry_dict = dict(
+                (k, cost_load_entry[k]) for k in [dict_entries[0]] if k in cost_load_entry)
             for cost_entry, transport_mode_entry in cost_entry_dict.items():
                 for transport_mode_entry, cost_value in transport_mode_entry.items():
                     # If the specific cost of the given transport mode for the given prod/demand
@@ -305,38 +389,45 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
                 # If the prod/demand site combination has already had the optimal specific cost in it, it
                 # does not get included in the costs_dict_specific for the next times, because the
                 # maximal possible loading between them should have already been used
-                if [prod_site, demand_site] not in delete_list:
-                    costs_dict_specific[prod_site][demand_site] = {}
-                    # For each production and demand site, the distance is found between them, the
-                    # yearly production and demand are found, and the maximum H2 that can be transported
-                    # between the two sites is calculated
-                    distance = get_distance_from_prod_to_demand_site(prod_site, demand_site, distance_matrix)
-                    # ToDo: cost_per_kg_trailer + cost_per_kg_pipeline calls this,
-                    #  they get these as objects
-                    h2_available = get_available_h2(prod_site, h2_prod_sites)
-                    h2_needed = get_needed_h2(demand_site, h2_demand_sites)
-                    total_h2_loading = get_total_h2_loading(h2_available, h2_needed)
-                    # The specific costs for each trailer type in the trailer dict are calculated
-                    # ToDo: calculate total_h2_loading in the cost functions, using prod + demand site objects
-                    # ToDo: compressor costs need to be inside cost_per_kg_trailer -> a function
-                    #  get_compressor_costs is added at the end of get_transport_costs functions
-                    cost_per_kg_trailer = get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_costs,
-                                                            prod_site, h2_prod_sites,
-                                                            demand_site, h2_demand_sites)
-                    # The specific costs for each pipeline type in the pipeline dict are calculated
-                    cost_per_kg_pipeline = get_pipeline_costs(total_h2_loading, distance, pipeline_costs,
-                                                              compressor_costs, prod_site, h2_prod_sites,
-                                                              demand_site, h2_demand_sites)
-                    costs_dict_specific[prod_site][demand_site][dict_entries[0]] = {}
-                    costs_dict_specific[prod_site][demand_site][dict_entries[1]] = {}
-                    # If there is an entry in the cost_per_kg_trailer dict, add it to costs_dict_specific
-                    if cost_per_kg_trailer is not None:
-                        costs_dict_specific[prod_site][demand_site][dict_entries[0]].update(cost_per_kg_trailer)
-                    # If there is an entry in the cost_per_kg_pipeline dict, add it to costs_dict_specific
-                    if cost_per_kg_pipeline is not None:
-                        costs_dict_specific[prod_site][demand_site][dict_entries[0]].update(cost_per_kg_pipeline)
-                    # Add total loading amount to costs_dict_specific
-                    costs_dict_specific[prod_site][demand_site][dict_entries[1]] = total_h2_loading
+                if [prod_site, demand_site] in delete_list:
+                    continue
+                costs_dict_specific[prod_site][demand_site] = {}
+                # For each production and demand site, the distance is found between them, the
+                # yearly production and demand are found, and the maximum H2 that can be transported
+                # between the two sites is calculated
+                distance = get_distance_from_prod_to_demand_site(prod_site, demand_site,
+                                                                 distance_matrix)
+                # ToDo: cost_per_kg_trailer + cost_per_kg_pipeline calls this,
+                #  they get these as objects
+                h2_available = get_available_h2(prod_site, h2_prod_sites)
+                h2_needed = get_needed_h2(demand_site, h2_demand_sites)
+                total_h2_loading = get_total_h2_loading(h2_available, h2_needed)
+                # The specific costs for each trailer type in the trailer dict are calculated
+                # ToDo: calculate total_h2_loading in the cost functions, using prod + demand site objects
+                # ToDo: compressor costs need to be inside cost_per_kg_trailer -> a function
+                #  get_compressor_costs is added at the end of get_transport_costs functions
+                cost_per_kg_trailer = get_trailer_costs(total_h2_loading, distance, trailer_costs,
+                                                        compressor_costs,
+                                                        prod_site, h2_prod_sites,
+                                                        demand_site, h2_demand_sites)
+                # The specific costs for each pipeline type in the pipeline dict are calculated
+                cost_per_kg_pipeline = get_pipeline_costs(total_h2_loading, distance,
+                                                          pipeline_costs,
+                                                          compressor_costs, prod_site,
+                                                          h2_prod_sites,
+                                                          demand_site, h2_demand_sites)
+                costs_dict_specific[prod_site][demand_site][dict_entries[0]] = {}
+                costs_dict_specific[prod_site][demand_site][dict_entries[1]] = {}
+                # If there is an entry in the cost_per_kg_trailer dict, add it to costs_dict_specific
+                if cost_per_kg_trailer is not None:
+                    costs_dict_specific[prod_site][demand_site][dict_entries[0]].update(
+                        cost_per_kg_trailer)
+                # If there is an entry in the cost_per_kg_pipeline dict, add it to costs_dict_specific
+                if cost_per_kg_pipeline is not None:
+                    costs_dict_specific[prod_site][demand_site][dict_entries[0]].update(
+                        cost_per_kg_pipeline)
+                # Add total loading amount to costs_dict_specific
+                costs_dict_specific[prod_site][demand_site][dict_entries[1]] = total_h2_loading
         # Calculates the minimum specific cost for all of the production site/demand site/transportation
         # mode combinations
         minimum = get_cheapest_cost(costs_dict_specific, dict_entries)
@@ -363,7 +454,8 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
         else:
             number_of_trucks = 0
         # A list of the main results parameters to save
-        results_data_info = [minimum[0], minimum[1], loading, minimum[2], number_of_trucks, specific_cost_value,
+        results_data_info = [minimum[0], minimum[1], loading, minimum[2], number_of_trucks,
+                             specific_cost_value,
                              loading * specific_cost_value]
         # Adds the results for this iteration to the total optimization results
         optimization_results.append(results_data_info)
@@ -389,8 +481,10 @@ def save_results_to_csv(optimization_results):
     :type optimization_results: list
     :return: csv file of optimization results
     """
-    results_headers = ['Production site', 'Demand site', 'Annual H2 transported [kg]', 'Transport mode',
-                       'Number of trailers required', 'Specific cost [EUR/kg]', 'Total annual cost [EUR]']
+    results_headers = ['Production site', 'Demand site', 'Annual H2 transported [kg]',
+                       'Transport mode',
+                       'Number of trailers required', 'Specific cost [EUR/kg]',
+                       'Total annual cost [EUR]']
 
     with open('transport_optimization_results.csv', 'w', newline='') as file:
         writer = csv.writer(file)
