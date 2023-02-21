@@ -1,6 +1,8 @@
 import math
 import csv
 import numpy as np
+import pytest as pytest
+
 from dicts import trailer_costs, pipeline_costs, compressor_costs
 
 
@@ -103,14 +105,14 @@ def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site
         # h2 loading is positive. Vice versa skip if any of these are false
         if pressures[i + 1] <= pressures[i] or total_h2_loading <= 0:
             continue
-        old_cmpr_size = sites['Compressor_size_'+ str(pressures[i+1])+ '_bar'][site[i]]
+        old_cmpr_size = sites['Compressor_size_' + str(pressures[i + 1]) + '_bar'][site[i]]
         old_cmpr_cost = cmpr_costs['base_capital_cost'] * \
                         (old_cmpr_size
                          ** cmpr_costs['scaling_factor'])
 
         # new compressor size is calculated as old compressor size + mass flow of this specific compression
         # (average total h2 loading) (kg/h)
-        new_cmpr_size = old_cmpr_size + total_h2_loading / (365*24)
+        new_cmpr_size = old_cmpr_size + total_h2_loading / (365 * 24)
         # equation for investment costs (see lausitz_surface_graph_3d file for the equation)
         new_cmpr_cost = cmpr_costs['base_capital_cost'] * \
                         (new_cmpr_size
@@ -147,7 +149,7 @@ def get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites, demand_site
 
 
 def get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_costs,
-                      prod_site, h2_prod_sites, demand_site, h2_demand_sites):
+                      prod_site, h2_prod_sites, demand_site, h2_demand_sites, compressor_cost_flag):
     # ToDo: make sure that the costs are calculated properly, check all parameters are relevant,
     #  make sure it should be total_H2_loading / 365 for the mass flow
     #  - got whole calculation from 'lausitz_surface_graph'
@@ -172,33 +174,55 @@ def get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_cost
             #                   / hours_of_availablilty_per_year) * costs of the trailer
             # ToDo Conservative would be to always have the cost of an integer amount trailer
             # Fractions mean there is a renting system in place or smth similar
-            trailer_capex = (total_h2_loading / 365 / trailer['trailer_cap']) * \
-                            (((distance * 2) / trailer['av_speed']) + trailer['unload_time']) / \
-                            (trailer['delivery_days'] * trailer['trailer_availability'] * trailer[
-                                'driver_hours']) * \
-                            (trailer['crf_trailer'] * trailer['tube_trailer_cost'] * trailer[
-                                'crf_cab'] * trailer[
-                                 'cab_cost'])
-            # ToDo 0.05 should be in dict
+            num_trailers_old = (total_h2_loading / 365 / trailer['trailer_cap']) * \
+                               (((distance * 2) / trailer['av_speed']) + trailer['unload_time']) / \
+                               (trailer['delivery_days'] * trailer['trailer_availability'] *
+                                trailer[
+                                    'driver_hours'])
+
+            tot_trailer_time_h_per_a = (trailer['delivery_days'] * trailer['trailer_availability']
+                                        * trailer['driver_hours'])
+
+            trailer_time_per_trip = ((distance * 2) / trailer['av_speed']) + trailer['unload_time']
+
+            number_of_trips = total_h2_loading / trailer['trailer_cap']
+            num_trailers = number_of_trips / (tot_trailer_time_h_per_a / trailer_time_per_trip)
+            assert num_trailers ==  pytest.approx(365 * num_trailers_old)
+
+            trailer_capex = num_trailers * (trailer['crf_trailer'] * trailer['tube_trailer_cost']
+                                            + trailer['crf_cab'] * trailer['cab_cost'])
 
             trailer_opex_fix = 0.05 * trailer_capex  # 5 % of CAPEX
-            trailer_opex_var = (0.01 * trailer_capex) + \
-                               (distance * trailer['maut'] * trailer['maut_distance']) + \
-                               (distance * 2 * trailer['fuel_price'] * trailer['fuel_economy']) + \
-                               (total_h2_loading / 365 / trailer['trailer_cap']) * \
-                               ((distance * 2 / trailer['av_speed']) + trailer['unload_time']) * \
-                               (distance * 2 / trailer['av_speed']) * trailer['drivers_wage']
+            trailer_opex_var_old = (0.01 * trailer_capex) + \
+                                   (distance * trailer['maut'] * trailer['maut_distance']) + \
+                                   (distance * 2 * trailer['fuel_price'] * trailer[
+                                       'fuel_economy']) + \
+                                   (total_h2_loading / 365 / trailer['trailer_cap']) * \
+                                   ((distance * 2 / trailer['av_speed']) + trailer['unload_time']) * \
+                                   (distance * 2 / trailer['av_speed']) * trailer['drivers_wage']
 
+            trailer_opex_var = num_trailers * ((0.01 * trailer_capex)
+                                    + (distance * 2 * trailer['maut'] * trailer['maut_distance'])
+                                    + (distance * 2 * trailer['fuel_price'] * trailer['fuel_economy'])
+                                    + ((distance * 2 / trailer['av_speed']) + trailer['unload_time'])
+                                               * trailer['drivers_wage'])
+
+            # assert trailer_opex_var_old == pytest.approx(trailer_opex_var)
+            trailer_opex_var=trailer_opex_var_old
             trailer_cost_tot = trailer_capex + trailer_opex_fix + trailer_opex_var
         else:
             trailer_cost_tot = 0
-        costs_per_kg_compressor = get_compressor_costs(total_h2_loading, prod_site,
+        if compressor_cost_flag:
+            costs_per_kg_compressor = get_compressor_costs(total_h2_loading, prod_site,
                                                        h2_prod_sites, demand_site,
                                                        h2_demand_sites, compressor_costs,
                                                        trailer)
+        else:
+            costs_per_kg_compressor = 0
+
         if total_h2_loading > 0:
-            cost_per_kg_trailer[trailer_type] = (
-                                                        trailer_cost_tot / total_h2_loading) + costs_per_kg_compressor
+            cost_per_kg_trailer[trailer_type] = (trailer_cost_tot / total_h2_loading)\
+                                                    + costs_per_kg_compressor
         else:
             cost_per_kg_trailer = None
 
@@ -207,7 +231,7 @@ def get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_cost
 
 def get_pipeline_costs(total_h2_loading, distance, pipeline_costs, compressor_costs, prod_site,
                        h2_prod_sites,
-                       demand_site, h2_demand_sites):
+                       demand_site, h2_demand_sites, compressor_cost_flag):
     # ToDo: make sure costs are calculated correctly
     # ToDo: decide if the diameter of the pipeline needs to be considered
     """Calculates the cost per kg to transport the H2 by pipeline for each pipeline type,
@@ -227,13 +251,17 @@ def get_pipeline_costs(total_h2_loading, distance, pipeline_costs, compressor_co
         pipeline_cost_tot = pipeline_capex + pipeline_opex_fix
 
         # ToDo Change compressors to zero if they have no real impacts
-        cost_per_kg_compressor = get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites,
-                                                      demand_site, h2_demand_sites,
-                                                      compressor_costs,
-                                                      pl)
+        if compressor_cost_flag:
+            cost_per_kg_compressor = get_compressor_costs(total_h2_loading, prod_site, h2_prod_sites,
+                                                          demand_site, h2_demand_sites,
+                                                          compressor_costs,
+                                                          pl)
+        else:
+            cost_per_kg_compressor = 0
+
         if total_h2_loading > 0:
-            cost_per_kg_pipeline[pipeline_type] = (
-                                                          pipeline_cost_tot / total_h2_loading) + cost_per_kg_compressor
+            cost_per_kg_pipeline[pipeline_type] = (pipeline_cost_tot / total_h2_loading)\
+                                                  + cost_per_kg_compressor
         else:
             cost_per_kg_pipeline = None
     return cost_per_kg_pipeline
@@ -274,7 +302,9 @@ def get_cheapest_cost(costs_dict_specific, dict_entries):
     return minimum
 
 
-def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_sites):
+def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_sites,
+                                     compressor_cost_flag=False,
+                                     production_cost_flag=False):
     """Main function for running the transport optimization model. For all production and demand sites,
      the transport route and mode with the optimal specific costs will be chosen. Once this particular
      route has been chosen with an optimal transport mode, the route will no longer be considered, and
@@ -314,11 +344,11 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
     h2_needed_sum = h2_demand_sites.sum()['H2 needed']
     # ToDo get pressures from somewere
     # ToDO Pressures dont matter and can be removed
-    for size in [350,500]:
+    for size in [350, 500]:
         # Add column for compressor size at production sites (initially this is zero)
-        h2_prod_sites['Compressor_size_'+ str(size)+ '_bar'] = 0
+        h2_prod_sites['Compressor_size_' + str(size) + '_bar'] = 0
         # Add column for compressor size at demand sites (initially this is zero)
-        h2_demand_sites['Compressor_size_'+ str(size)+ '_bar'] = 0
+        h2_demand_sites['Compressor_size_' + str(size) + '_bar'] = 0
 
     # While loop until there is no demand left to be fulfilled
     while h2_needed_sum > 0:
@@ -348,13 +378,13 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
                 cost_per_kg_trailer = get_trailer_costs(total_h2_loading, distance, trailer_costs,
                                                         compressor_costs,
                                                         prod_site, h2_prod_sites,
-                                                        demand_site, h2_demand_sites)
+                                                        demand_site, h2_demand_sites, compressor_cost_flag)
                 # The specific costs for each pipeline type in the pipeline dict are calculated
                 cost_per_kg_pipeline = get_pipeline_costs(total_h2_loading, distance,
                                                           pipeline_costs,
                                                           compressor_costs, prod_site,
                                                           h2_prod_sites,
-                                                          demand_site, h2_demand_sites)
+                                                          demand_site, h2_demand_sites, compressor_cost_flag)
                 costs_dict_specific[prod_site][demand_site][dict_entries[0]] = {}
                 costs_dict_specific[prod_site][demand_site][dict_entries[1]] = {}
                 # If there is an entry in the cost_per_kg_trailer dict, add it to costs_dict_specific
@@ -388,17 +418,15 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
             assert 0, "Transport mode could not be identified"
 
         # Update compressor size at prod size
-        compressor_type= 'Compressor_size_' + str(transport_pressure) + '_bar'
+        compressor_type = 'Compressor_size_' + str(transport_pressure) + '_bar'
         if transport_pressure > h2_prod_sites.loc[minimum[0], 'H2 pressure']:
-            h2_prod_sites.loc[minimum[0], compressor_type] += loading/(365*24)
-
-
+            h2_prod_sites.loc[minimum[0], compressor_type] += loading / (365 * 24)
 
         # Update Compressor size at demand size
         demand_pressure = h2_demand_sites.loc[minimum[1], 'H2 pressure needed']
-        compressor_type= 'Compressor_size_' + str(demand_pressure) + '_bar'
+        compressor_type = 'Compressor_size_' + str(demand_pressure) + '_bar'
         if transport_pressure < demand_pressure:
-            h2_demand_sites.loc[minimum[1], compressor_type] += loading/(365*24)
+            h2_demand_sites.loc[minimum[1], compressor_type] += loading / (365 * 24)
 
         # Calculates and updates the new available demand amount for chosen demand site by subtracting
         # the loading amount
@@ -424,9 +452,9 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
         optimization_results.append(results_data_info)
         # ToDo: what percentage of the production goes to each demand site, also include the distance
         # ToDo:
-        print(
-            f'{minimum[0]} transports {loading} kg of H2 annually to {minimum[1]} '
-            f'by transport mode {minimum[2]} at a price of {specific_cost_value} EUR/kg.')
+        # print(
+        #     f'{minimum[0]} transports {loading} kg of H2 annually to {minimum[1]} '
+        #     f'by transport mode {minimum[2]} at a price of {specific_cost_value} EUR/kg.')
         # Adds the production/demand site combination to a list to delete from
         # costs_dict_specific in the next iteration
         delete_entry = [minimum[0], minimum[1]]
@@ -437,7 +465,7 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
     return optimization_results
 
 
-def save_results_to_csv(optimization_results):
+def save_results_to_csv(optimization_results, suffix=""):
     """Saves the optimization results to a csv file.
 
     :param optimization_results: results from transport optimization
@@ -448,8 +476,8 @@ def save_results_to_csv(optimization_results):
                        'Transport mode',
                        'Number of trailers required', 'Specific cost [EUR/kg]',
                        'Total annual cost [EUR]']
-
-    with open('transport_optimization_results.csv', 'w', newline='') as file:
+    output_name='transport_optimization_results'+suffix+".csv"
+    with open(output_name, 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(results_headers)
         writer.writerows(optimization_results)
