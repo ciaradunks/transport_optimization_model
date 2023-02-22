@@ -35,6 +35,7 @@ scenario_files = ["Scenario_0_H2_prod.csv",
                   ]
 
 for i, file in enumerate(scenario_files):
+    i=5
     h2_prod_sites = pd.read_csv(file, encoding='unicode_escape')
     h2_prod_sites.rename(columns={'Unnamed: 0': 'Production sites'}, inplace=True)
     h2_prod_sites = h2_prod_sites.set_index('Production sites')

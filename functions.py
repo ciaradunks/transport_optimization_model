@@ -194,12 +194,11 @@ def get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_cost
 
             trailer_opex_fix = 0.05 * trailer_capex  # 5 % of CAPEX
             trailer_opex_var_old = (0.01 * trailer_capex) + \
+                                   number_of_trips*(
                                    (distance * trailer['maut'] * trailer['maut_distance']) + \
                                    (distance * 2 * trailer['fuel_price'] * trailer[
-                                       'fuel_economy']) + \
-                                   (total_h2_loading / 365 / trailer['trailer_cap']) * \
-                                   ((distance * 2 / trailer['av_speed']) + trailer['unload_time']) * \
-                                   (distance * 2 / trailer['av_speed']) * trailer['drivers_wage']
+                                       'fuel_economy']) +
+                                   ((distance * 2 / trailer['av_speed']) + trailer['unload_time']) * trailer['drivers_wage'])
 
             trailer_opex_var = num_trailers * ((0.01 * trailer_capex)
                                     + (distance * 2 * trailer['maut'] * trailer['maut_distance'])
@@ -208,7 +207,7 @@ def get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_cost
                                                * trailer['drivers_wage'])
 
             # assert trailer_opex_var_old == pytest.approx(trailer_opex_var)
-            trailer_opex_var=trailer_opex_var_old
+            # trailer_opex_var=trailer_opex_var
             trailer_cost_tot = trailer_capex + trailer_opex_fix + trailer_opex_var
         else:
             trailer_cost_tot = 0
