@@ -193,7 +193,7 @@ def get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_cost
                                             + trailer['crf_cab'] * trailer['cab_cost'])
 
             trailer_opex_fix = 0.05 * trailer_capex  # 5 % of CAPEX
-            trailer_opex_var_old = (0.01 * trailer_capex) + \
+            trailer_opex_var_old = num_trailers*(0.01 * trailer_capex) + \
                                    number_of_trips*(
                                    (distance * trailer['maut'] * trailer['maut_distance']) + \
                                    (distance * 2 * trailer['fuel_price'] * trailer[
@@ -207,7 +207,7 @@ def get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_cost
                                                * trailer['drivers_wage'])
 
             # assert trailer_opex_var_old == pytest.approx(trailer_opex_var)
-            # trailer_opex_var=trailer_opex_var
+            trailer_opex_var=trailer_opex_var_old
             trailer_cost_tot = trailer_capex + trailer_opex_fix + trailer_opex_var
         else:
             trailer_cost_tot = 0
@@ -451,9 +451,9 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
         optimization_results.append(results_data_info)
         # ToDo: what percentage of the production goes to each demand site, also include the distance
         # ToDo:
-        # print(
-        #     f'{minimum[0]} transports {loading} kg of H2 annually to {minimum[1]} '
-        #     f'by transport mode {minimum[2]} at a price of {specific_cost_value} EUR/kg.')
+        print(
+            f'{minimum[0]} transports {loading} kg of H2 annually to {minimum[1]} '
+            f'by transport mode {minimum[2]} at a price of {specific_cost_value} EUR/kg.')
         # Adds the production/demand site combination to a list to delete from
         # costs_dict_specific in the next iteration
         delete_entry = [minimum[0], minimum[1]]

@@ -5,17 +5,17 @@ from functions import run_transport_optimization_model, save_results_to_csv, tur
 
 # --------- INPUTS --------- #
 
-distance_matrix = pd.read_csv('TEST_distance_matrix.csv', encoding='unicode_escape')
+distance_matrix = pd.read_csv('2023-02-23_distance_matrix.csv', encoding='unicode_escape')
 distance_matrix.rename(columns={'Unnamed: 0': 'Production/demand sites'}, inplace=True)
 distance_matrix = distance_matrix.set_index('Production/demand sites')
 distance_matrix = distance_matrix.replace('~', 0, regex=True)
 distance_matrix = distance_matrix.apply(np.vectorize(turn_string_into_value))
 
-h2_prod_sites = pd.read_csv('TEST_h2_prod_sites_system1.csv', encoding='unicode_escape')
-h2_prod_sites.rename(columns={'Unnamed: 0': 'Production sites'}, inplace=True)
-h2_prod_sites = h2_prod_sites.set_index('Production sites')
+# h2_prod_sites = pd.read_csv('TEST_h2_prod_sites_system1.csv', encoding='unicode_escape')
+# h2_prod_sites.rename(columns={'Unnamed: 0': 'Production sites'}, inplace=True)
+# h2_prod_sites = h2_prod_sites.set_index('Production sites')
 
-h2_demand_sites = pd.read_csv('TEST_h2_demand_sites_system1.csv', encoding='unicode_escape')
+h2_demand_sites = pd.read_csv('h2_demand_sites_system2.csv', encoding='unicode_escape')
 h2_demand_sites.rename(columns={'Unnamed: 0': 'Demand sites'}, inplace=True)
 h2_demand_sites = h2_demand_sites.set_index('Demand sites')
 
@@ -35,7 +35,6 @@ scenario_files = ["Scenario_0_H2_prod.csv",
                   ]
 
 for i, file in enumerate(scenario_files):
-    i=5
     h2_prod_sites = pd.read_csv(file, encoding='unicode_escape')
     h2_prod_sites.rename(columns={'Unnamed: 0': 'Production sites'}, inplace=True)
     h2_prod_sites = h2_prod_sites.set_index('Production sites')
