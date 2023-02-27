@@ -174,6 +174,7 @@ def get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_cost
             #                   / hours_of_availablilty_per_year) * costs of the trailer
             # ToDo Conservative would be to always have the cost of an integer amount trailer
             # Fractions mean there is a renting system in place or smth similar
+
             num_trailers_old = (total_h2_loading / 365 / trailer['trailer_cap']) * \
                                (((distance * 2) / trailer['av_speed']) + trailer['unload_time']) / \
                                (trailer['delivery_days'] * trailer['trailer_availability'] *
@@ -187,27 +188,19 @@ def get_trailer_costs(total_h2_loading, distance, trailer_costs, compressor_cost
 
             number_of_trips = total_h2_loading / trailer['trailer_cap']
             num_trailers = number_of_trips / (tot_trailer_time_h_per_a / trailer_time_per_trip)
-            assert num_trailers ==  pytest.approx(365 * num_trailers_old)
+            assert num_trailers == pytest.approx(365 * num_trailers_old)
 
             trailer_capex = num_trailers * (trailer['crf_trailer'] * trailer['tube_trailer_cost']
                                             + trailer['crf_cab'] * trailer['cab_cost'])
 
             trailer_opex_fix = 0.05 * trailer_capex  # 5 % of CAPEX
-            trailer_opex_var_old = num_trailers*(0.01 * trailer_capex) + \
-                                   number_of_trips*(
-                                   (distance * trailer['maut'] * trailer['maut_distance']) + \
+            trailer_opex_var = number_of_trips*(
+                                   (distance * 2 * trailer['maut'] * trailer['maut_distance']) + \
                                    (distance * 2 * trailer['fuel_price'] * trailer[
                                        'fuel_economy']) +
                                    ((distance * 2 / trailer['av_speed']) + trailer['unload_time']) * trailer['drivers_wage'])
 
-            trailer_opex_var = num_trailers * ((0.01 * trailer_capex)
-                                    + (distance * 2 * trailer['maut'] * trailer['maut_distance'])
-                                    + (distance * 2 * trailer['fuel_price'] * trailer['fuel_economy'])
-                                    + ((distance * 2 / trailer['av_speed']) + trailer['unload_time'])
-                                               * trailer['drivers_wage'])
 
-            # assert trailer_opex_var_old == pytest.approx(trailer_opex_var)
-            trailer_opex_var=trailer_opex_var_old
             trailer_cost_tot = trailer_capex + trailer_opex_fix + trailer_opex_var
         else:
             trailer_cost_tot = 0
@@ -378,6 +371,7 @@ def run_transport_optimization_model(distance_matrix, h2_prod_sites, h2_demand_s
                                                         compressor_costs,
                                                         prod_site, h2_prod_sites,
                                                         demand_site, h2_demand_sites, compressor_cost_flag)
+
                 # The specific costs for each pipeline type in the pipeline dict are calculated
                 cost_per_kg_pipeline = get_pipeline_costs(total_h2_loading, distance,
                                                           pipeline_costs,
